@@ -5,19 +5,35 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ChessBotPage</title>
 
+
+    <!--link chessboard2 CSS-->
+    <link rel="stylesheet"
+      href="https://unpkg.com/@chrisoakman/chessboard2@0.5.0/dist/chessboard2.min.css"
+      integrity="sha384-47VeTDpmy4yT21gKPXQcLQYQZwlmz27gEH5NTrOmTk3G/SGvMyltclOW/Q8uE+sL"
+      crossorigin="anonymous">
+
     <!--link css-->
     <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
-    <div class="card">
-        <h1 id="title">Chess</h1>
-        <p>Button</p>
-        <button id="changeBtn">Click here</button>
+    <div class="container">
+        <h2>My Chess Bot</h2>
+        <!-- Board container -->
+        <div id="myBoard" style="width: 400px"></div>
+        <p id="status">Status: White's turn</p>
     </div>
 
     <!--link js-->
     <script src="script.js"></script>
+
+    <!--link chessboard2 js-->
+    <script src="https://unpkg.com/@chrisoakman/chessboard2@0.5.0/dist/chessboard2.min.js"
+        integrity="sha384-/KwQCjA1GWovZNV3QDVtvSMDzO4reGgarF/RqHipr7hIUElH3r5zNl9WEPPOBRIF"
+        crossorigin="anonymous"></script>
+    
+    <!--link chess js-->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
 </body>
 </html>
