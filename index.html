@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ChessBotPage</title>
 
-
     <!--link chessboard2 CSS-->
     <link rel="stylesheet"
       href="https://unpkg.com/@chrisoakman/chessboard2@0.5.0/dist/chessboard2.min.css"
@@ -18,34 +17,27 @@
 
 <body>
 
-    <div id="myBoard" style="width: 400px"></div>
+    <div class="container">
+        <div id="boardRow">
+            <div id="evalBar" title="Evaluation">
+                <div id="evalWhite"></div>
+            </div>
+            <div id="myBoard" style="width: 400px"></div>
+        </div>
 
-    <label>Status:</label>
-    <div id="gameStatus"></div>
-    <!--<label>FEN:</label>
-    <div id="gameFEN"></div>-->
-    <label>PGN:</label>
-    <div id="gamePGN"></div>
-
-    
-
-
-
-
-
-
-
-
-
-
-
-
+        <label>Status:</label>
+        <div id="gameStatus"></div>
+        <label>FEN:</label>
+        <div id="gameFEN"></div>
+        <label>PGN:</label>
+        <div id="gamePGN"></div>
+    </div>
 
     <!--link chessboard2 js-->
     <script src="https://unpkg.com/@chrisoakman/chessboard2@0.5.0/dist/chessboard2.min.js"
         integrity="sha384-/KwQCjA1GWovZNV3QDVtvSMDzO4reGgarF/RqHipr7hIUElH3r5zNl9WEPPOBRIF"
         crossorigin="anonymous"></script>
-    
+
     <!--link chess js-->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.12.1/chess.js"
     integrity="sha384-8sJV/krC8iV2g7t0PolQxFVckDtxhfM5gNHNAFPG2ZS/bScudOjfsB8ewhG2xle8"

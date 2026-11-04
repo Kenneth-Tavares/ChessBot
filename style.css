@@ -13,7 +13,42 @@ body {
   text-align: center;
 }
 
+#boardRow {
+  display: flex;
+  align-items: stretch;   /* eval bar matches board height */
+  justify-content: center;
+  gap: 10px;
+  margin: 20px 0;
+}
+
 #myBoard {
-  margin: 20px auto;
+  margin: 0;
   box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+}
+
+/* eval bar: dark = black's advantage, light = white's advantage, fills from the bottom */
+#evalBar {
+  width: 24px;
+  background: #403d39;
+  border-radius: 3px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column-reverse;
+}
+
+#evalWhite {
+  background: #f0f0f0;
+  height: 50%;
+  transition: height 0.4s ease;
+}
+
+#gameFEN, #gamePGN {
+  max-width: 440px;
+  margin: 4px auto 12px;
+  word-wrap: break-word;
+  font-size: 13px;
+}
+
+#gameStatus {
+  margin: 4px 0 12px;
 }
