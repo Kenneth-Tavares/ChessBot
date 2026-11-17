@@ -1,9 +1,15 @@
 <!DOCTYPE html>
-<html lang="en"
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ChessBotPage</title>
+
+    <!--link chessboard2 CSS-->
+    <link rel="stylesheet"
+      href="https://unpkg.com/@chrisoakman/chessboard2@0.5.0/dist/chessboard2.min.css"
+      integrity="sha384-47VeTDpmy4yT21gKPXQcLQYQZwlmz27gEH5NTrOmTk3G/SGvMyltclOW/Q8uE+sL"
+      crossorigin="anonymous">
 
     <!--link css-->
     <link rel="stylesheet" href="style.css">
@@ -11,13 +17,62 @@
 
 <body>
 
-    <div class="card">
-        <h1 id="title">Chess</h1>
-        <p>Button</p>
-        <button id="changeBtn">Click here</button>
+    <div class="container">
+        <div id="boardRow">
+            <div id="evalBar" title="Evaluación">
+                <div id="evalWhite"></div>
+            </div>
+            <div id="myBoard" style="width: 400px"></div>
+
+            <div id="paneles">
+                <!--panel del módulo de explicación (jugadas del bot)-->
+                <div id="panelExplicacion" class="panel">
+                    <h3>¿Por qué jugó eso?</h3>
+                    <div id="jugadaBot">Esperando tu jugada...</div>
+                    <ul id="razones"></ul>
+                </div>
+
+                <!--panel del modo tutor (jugadas recomendadas para el humano)-->
+                <div id="panelTutor" class="panel">
+                    <div class="tutorEncabezado">
+                        <h3>Modo tutor</h3>
+                        <label class="interruptor" title="Encender / apagar el modo tutor">
+                            <input type="checkbox" id="tutorSwitch">
+                            <span class="deslizador"></span>
+                        </label>
+                    </div>
+                    <div id="tutorRetro"></div>
+                    <div id="tutorJugada"></div>
+                    <ul id="tutorRazones"></ul>
+                </div>
+            </div>
+        </div>
+
+        <button id="btnNueva">Nueva partida</button>
+
+        <label>Estado:</label>
+        <div id="gameStatus"></div>
+        <label>FEN:</label>
+        <div id="gameFEN"></div>
+        <label>PGN:</label>
+        <div id="gamePGN"></div>
     </div>
 
-    <!--link js-->
-    <script src="script.js"></script>
+    <!--link chessboard2 js-->
+    <script src="https://unpkg.com/@chrisoakman/chessboard2@0.5.0/dist/chessboard2.min.js"
+        integrity="sha384-/KwQCjA1GWovZNV3QDVtvSMDzO4reGgarF/RqHipr7hIUElH3r5zNl9WEPPOBRIF"
+        crossorigin="anonymous"></script>
+
+    <!--link chess js-->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.12.1/chess.js"
+    integrity="sha384-8sJV/krC8iV2g7t0PolQxFVckDtxhfM5gNHNAFPG2ZS/bScudOjfsB8ewhG2xle8"
+    crossorigin="anonymous"></script>
+
+    <!--links js-->
+    <script src="conocimiento.js"></script>   <!--base de conocimiento-->
+    <script src="motor.js"></script>          <!--motor de inferencia-->
+    <script src="explicacion.js"></script>    <!--módulo de explicación-->
+    <script src="script.js"></script>         <!--interfaz-->
+
 </body>
 </html>
