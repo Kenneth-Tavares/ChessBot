@@ -1,15 +1,27 @@
+// =====================================================
+// INTERFAZ
+// Conecta el tablero (chessboard2 + chess.js) con el sistema experto:
+// base de conocimiento (conocimiento.js), motor de inferencia (motor.js)
+// y módulo de explicación (explicacion.js).
+// =====================================================
+
 const game = new Chess()
 
-const playerColor = 'w'   // the human plays this colour; the bot plays the other
-const BOT_DEPTH = 4       // search depth in plies (3 is instant, 4+ starts to lag)
+const playerColor = 'w'    // el humano juega con este color; el bot con el otro
+const TIEMPO_BOT = 3000    // milisegundos que el bot piensa cada jugada
+const TIEMPO_TUTOR = 2000  // milisegundos que el tutor piensa su recomendación
+const COLOR_FLECHA = '#15781B'
 
-let selectedSquare = null // square of the piece selected by clicking
+let selectedSquare = null  // casilla de la pieza seleccionada con clic
+let evalBlancas = 0        // última evaluación (centipeones, + = ventaja blanca)
+let tutorActivo = false    // ¿está encendido el modo tutor?
+let recomendacion = null   // última jugada recomendada por el tutor: { de, a, descripcion }
 
 const boardConfig = {
     showNotation: true,
     draggable: true,
     dropOffBoard: 'snapback',
-    orientation: 'white',
+    orientation: playerColor === 'w' ? 'white' : 'black',
     position: 'start',
     onDragStart,
     onDrop,
@@ -22,96 +34,146 @@ const statusEl = byID('gameStatus')
 const fenEl = byID('gameFEN')
 const pgnEl = byID('gamePGN')
 const evalWhiteEl = byID('evalWhite')
+const jugadaBotEl = byID('jugadaBot')
+const razonesEl = byID('razones')
+const tutorSwitchEl = byID('tutorSwitch')
+const tutorRetroEl = byID('tutorRetro')
+const tutorJugadaEl = byID('tutorJugada')
+const tutorRazonesEl = byID('tutorRazones')
 
 // =====================================================
-// EVALUATION
+// ELEGIR JUGADA (lo usan el bot y el tutor)
 // =====================================================
 
-const PIECE_VALUES = { p: 100, n: 320, b: 330, r: 500, q: 900, k: 0 }
+// Devuelve { m, resultado, libro } para el bando al que le toca mover
+function elegirJugada (tiempo) {
+    // 1) copiar la partida a la memoria de trabajo del motor
+    cargarDesdeJuego(game)
 
-// returns centipawns from WHITE's point of view (+ = white is better)
-function evaluate (g) {
-    let score = 0
-    const b = g.board() // 8x8 array, row 0 = rank 8
-    for (let r = 0; r < 8; r++) {
-        for (let c = 0; c < 8; c++) {
-            const sq = b[r][c]
-            if (!sq) continue
-            let val = PIECE_VALUES[sq.type]
-            // small bonus for being near the centre
-            const centre = 3.5 - Math.max(Math.abs(r - 3.5), Math.abs(c - 3.5))
-            if (sq.type !== 'k') val += centre * 5
-            score += sq.color === 'w' ? val : -val
-        }
+    // 2) primero consultar el conocimiento experto (libro de aperturas)
+    const hechas = game.history({ verbose: true }).map((h) => h.from + h.to + (h.promotion || ''))
+    let libro = consultarLibro(hechas)
+    let m = 0, resultado = null
+    if (libro) m = buscarJugada(libro.jugada.slice(0, 2), libro.jugada.slice(2, 4))
+
+    // 3) si no hay jugada de libro, razonar con el motor de inferencia (búsqueda)
+    if (!m) {
+        libro = null
+        resultado = pensar(tiempo)
+        m = resultado.jugada
     }
-    return score
+    return { m, resultado, libro }
 }
 
 // =====================================================
-// SEARCH (negamax + alpha-beta pruning)
+// TURNO DEL BOT
 // =====================================================
-
-// returns a score from the point of view of the side to move
-function search (depth, alpha, beta) {
-    const moves = game.moves()
-
-    // no legal moves: checkmate or stalemate
-    if (moves.length === 0) {
-        return game.in_check() ? -100000 - depth : 0   // faster mates score higher
-    }
-    if (game.insufficient_material()) return 0
-    if (depth === 0) return (game.turn() === 'w' ? 1 : -1) * evaluate(game)
-
-    for (const m of moves) {
-        game.move(m)
-        const score = -search(depth - 1, -beta, -alpha)
-        game.undo()
-        if (score >= beta) return beta   // prune
-        if (score > alpha) alpha = score
-    }
-    return alpha
-}
-
-function shuffle (arr) {
-    for (let i = arr.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [arr[i], arr[j]] = [arr[j], arr[i]]
-    }
-    return arr
-}
-
-function findBestMove (depth) {
-    let best = null
-    let alpha = -Infinity
-    // shuffled so equal-scoring moves vary between games
-    for (const m of shuffle(game.moves())) {
-        game.move(m)
-        const score = -search(depth - 1, -Infinity, -alpha)
-        game.undo()
-        if (score > alpha) { alpha = score; best = m }
-    }
-    return best
-}
 
 function botMove () {
     if (game.game_over()) return
-    const move = findBestMove(BOT_DEPTH)
-    console.log('bot move:', move)
-    if (!move) return
-    game.move(move)
-    board.fen(game.fen())
-    updateStatus()
+    statusEl.innerHTML = 'El bot está pensando...'
+
+    // pequeña pausa para que el navegador pinte el mensaje antes de que el bot piense
+    setTimeout(() => {
+        const { m, resultado, libro } = elegirJugada(TIEMPO_BOT)
+        if (!m) return
+
+        // pedir al módulo de explicación el "por qué" (versión técnica)
+        const razones = explicarJugada(game, m, resultado, libro)
+
+        // hacer la jugada en la partida real
+        const c = coronacion(m)
+        const hecha = game.move({
+            from: nombreCasilla(origen(m)),
+            to: nombreCasilla(destino(m)),
+            promotion: c ? LETRA_PIEZA[c] : undefined
+        })
+        console.log('bot:', hecha.san, resultado || '(libro)')
+
+        if (resultado) evalBlancas = game.turn() === 'w' ? -resultado.valor : resultado.valor
+        board.fen(game.fen())
+        jugadaBotEl.innerHTML = 'El bot jugó <strong>' + hecha.san + '</strong>'
+        mostrarRazones(razonesEl, razones)
+        updateStatus()
+        actualizarTutor() // ahora le toca al humano: el tutor puede recomendar
+    }, 50)
 }
 
 // =====================================================
-// MOVING PIECES (shared by dragging and clicking)
+// MODO TUTOR
+// Usa el mismo motor y el mismo módulo de explicación, pero para el lado del humano
+// y con textos para alguien que no sabe ajedrez. Dibuja una flecha con la jugada.
+// =====================================================
+
+function actualizarTutor () {
+    board.clearArrows()
+    recomendacion = null
+    tutorRazonesEl.innerHTML = ''
+
+    if (!tutorActivo) {
+        tutorJugadaEl.textContent = 'Enciéndelo para que te recomiende una jugada y te explique por qué.'
+        tutorRetroEl.textContent = ''
+        return
+    }
+    if (game.game_over()) { tutorJugadaEl.textContent = 'La partida terminó.'; return }
+    if (game.turn() !== playerColor) { tutorJugadaEl.textContent = 'Esperando a que juegue el bot...'; return }
+
+    tutorJugadaEl.textContent = 'El tutor está pensando...'
+    setTimeout(() => {
+        // por si mientras tanto se apagó el tutor o cambió el turno
+        if (!tutorActivo || game.turn() !== playerColor || game.game_over()) return
+
+        const { m, resultado, libro } = elegirJugada(TIEMPO_TUTOR)
+        if (!m) return
+        const descripcion = describirJugada(m)
+        const razones = explicarJugada(game, m, resultado, libro, true)
+        if (razones.length === 0) {
+            razones.push({ tipo: 'Evaluación', texto: 'Es la jugada que mejor resultado dio cuando la computadora calculó las posibles respuestas del rival.' })
+        }
+
+        const de = nombreCasilla(origen(m)), a = nombreCasilla(destino(m))
+        recomendacion = { de, a, descripcion }
+        board.addArrow({ start: de, end: a, color: COLOR_FLECHA })
+
+        tutorJugadaEl.innerHTML = 'Te recomiendo: <strong>' + descripcion + '</strong>'
+        mostrarRazones(tutorRazonesEl, razones)
+    }, 50)
+}
+
+tutorSwitchEl.addEventListener('change', () => {
+    tutorActivo = tutorSwitchEl.checked
+    tutorRetroEl.textContent = ''
+    actualizarTutor()
+})
+
+// =====================================================
+// PANELES DE EXPLICACIÓN
+// =====================================================
+
+function mostrarRazones (lista, razones) {
+    lista.innerHTML = ''
+    for (const r of razones) {
+        const li = document.createElement('li')
+        li.className = 'razon tipo-' + r.tipo.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+        const etiqueta = document.createElement('span')
+        etiqueta.className = 'etiqueta'
+        etiqueta.textContent = r.tipo
+        const texto = document.createElement('span')
+        texto.textContent = r.texto
+        li.append(etiqueta, texto)
+        lista.append(li)
+    }
+}
+
+// =====================================================
+// MOVER PIEZAS (lo comparten arrastrar y hacer clic)
 // =====================================================
 
 function tryMove (from, to) {
     const move = game.move({
         from,
         to,
-        promotion: 'q' // NOTE: always promote to a queen for simplicity
+        promotion: 'q' // NOTA: el humano siempre corona dama, por simplicidad
     })
 
     board.clearCircles()
@@ -119,9 +181,21 @@ function tryMove (from, to) {
 
     if (!move) return false
 
+    // retroalimentación del tutor: ¿siguió la recomendación?
+    if (tutorActivo && recomendacion) {
+        tutorRetroEl.textContent = (from === recomendacion.de && to === recomendacion.a)
+            ? '¡Bien! Hiciste la jugada que recomendaba el tutor.'
+            : 'Hiciste otra jugada. El tutor recomendaba: ' + recomendacion.descripcion + '.'
+    }
+
+    // evaluación rápida (sin búsqueda) para la barra después de la jugada del humano
+    cargarDesdeJuego(game)
+    evalBlancas = game.turn() === 'w' ? evaluar() : -evaluar()
+
     board.fen(game.fen())
     updateStatus()
-    setTimeout(botMove, 250) // lets the UI repaint before the bot thinks
+    actualizarTutor() // borra la flecha mientras juega el bot
+    setTimeout(botMove, 250) // deja que se pinte el tablero antes de que el bot piense
     return true
 }
 
@@ -130,24 +204,24 @@ function showMovesFrom (square) {
     game.moves({ square, verbose: true }).forEach((m) => board.addCircle(m.to))
 }
 
-// ---------- drag and drop ----------
+// ---------- arrastrar y soltar ----------
 
 function onDragStart (dragStartEvt) {
-    // no picking pieces if game over
+    // no se pueden tomar piezas si terminó la partida
     if (game.game_over()) return false
 
-    // only the human's turn, and only the human's pieces
+    // solo en el turno del humano, y solo sus piezas
     if (game.turn() !== playerColor) return false
     if (playerColor === 'w' && !isWhitePiece(dragStartEvt.piece)) return false
     if (playerColor === 'b' && !isBlackPiece(dragStartEvt.piece)) return false
 
-    // treat the dragged piece as the selected one and show its moves
+    // la pieza arrastrada queda seleccionada y se muestran sus jugadas
     selectedSquare = dragStartEvt.square
     showMovesFrom(dragStartEvt.square)
 }
 
 function onDrop (dropEvt) {
-    // dropped back on its own square: keep the selection, just snap back
+    // si se suelta en su misma casilla, se conserva la selección
     if (dropEvt.source === dropEvt.target) return 'snapback'
 
     if (!tryMove(dropEvt.source, dropEvt.target)) {
@@ -157,13 +231,13 @@ function onDrop (dropEvt) {
     }
 }
 
-// ---------- click to move ----------
+// ---------- clic para mover ----------
 
 function onMousedownSquare (evt) {
     if (game.game_over() || game.turn() !== playerColor) return
     const sq = evt.square
 
-    // a piece is already selected: is this square a legal target?
+    // ya hay una pieza seleccionada: ¿esta casilla es un destino legal?
     if (selectedSquare && selectedSquare !== sq) {
         const legal = game.moves({ square: selectedSquare, verbose: true })
         if (legal.some((m) => m.to === sq)) {
@@ -172,7 +246,7 @@ function onMousedownSquare (evt) {
         }
     }
 
-    // otherwise select your own piece on this square (or deselect)
+    // si no, seleccionar una pieza propia en esta casilla (o quitar la selección)
     const piece = game.get(sq)
     if (piece && piece.color === playerColor) {
         selectedSquare = sq
@@ -187,42 +261,39 @@ function isWhitePiece (piece) { return /^w/.test(piece) }
 function isBlackPiece (piece) { return /^b/.test(piece) }
 
 // =====================================================
-// EVAL BAR
+// BARRA DE EVALUACIÓN
 // =====================================================
 
 function updateEvalBar () {
-    let cp = evaluate(game)
+    let cp = evalBlancas
     if (game.in_checkmate()) cp = game.turn() === 'w' ? -10000 : 10000
-    // squash centipawns into 0-100% (sigmoid)
+    else if (game.in_draw()) cp = 0
+    // convertir centipeones a 0-100% (sigmoide)
     const pct = 100 / (1 + Math.exp(-cp / 400))
     evalWhiteEl.style.height = pct + '%'
 }
 
 // =====================================================
-// STATUS
+// ESTADO
 // =====================================================
 
 function updateStatus () {
     let statusHTML = ''
-    const whosTurn = game.turn() === 'w' ? 'White' : 'Black'
+    const whosTurn = game.turn() === 'w' ? 'Blancas' : 'Negras'
 
     if (!game.game_over()) {
-        if (game.in_check()) statusHTML = whosTurn + ' is in check! '
-        statusHTML = statusHTML + whosTurn + ' to move.'
-    }   else if (game.in_checkmate() && game.turn() === 'w') {
-        statusHTML = 'Game over: white is in checkmate. Black wins!'
-    }   else if (game.in_checkmate() && game.turn() === 'b') {
-        statusHTML = 'Game over: Black is in checkmate. White wins!'
-    }   else if (game.in_stalemate() && game.turn() === 'w') {
-        statusHTML = 'Game is drawn. White is stalemated.'
-    }   else if (game.in_stalemate() && game.turn() === 'b') {
-        statusHTML = 'Game is drawn. Black is stalemated.'
-    }   else if (game.in_threefold_repetition()) {
-        statusHTML = 'Game is drawn by threefold repetition rule.'
-    }   else if (game.insufficient_material()) {
-        statusHTML = 'Game is drawn by insufficient material.'
-    }   else if (game.in_draw()) {
-        statusHTML = 'Game is drawn by fifty-move rule.'
+        if (game.in_check()) statusHTML = '¡' + whosTurn + ' en jaque! '
+        statusHTML = statusHTML + 'Juegan ' + whosTurn.toLowerCase() + '.'
+    } else if (game.in_checkmate()) {
+        statusHTML = 'Fin: jaque mate. ¡Ganan las ' + (game.turn() === 'w' ? 'negras' : 'blancas') + '!'
+    } else if (game.in_stalemate()) {
+        statusHTML = 'Tablas por rey ahogado.'
+    } else if (game.in_threefold_repetition()) {
+        statusHTML = 'Tablas por triple repetición.'
+    } else if (game.insufficient_material()) {
+        statusHTML = 'Tablas por material insuficiente.'
+    } else if (game.in_draw()) {
+        statusHTML = 'Tablas por la regla de las 50 jugadas.'
     }
 
     statusEl.innerHTML = statusHTML
@@ -231,9 +302,31 @@ function updateStatus () {
     updateEvalBar()
 }
 
+// =====================================================
+// NUEVA PARTIDA
+// =====================================================
+
+function nuevaPartida () {
+    game.reset()
+    selectedSquare = null
+    evalBlancas = 0
+    board.clearCircles()
+    board.fen(game.fen())
+    jugadaBotEl.innerHTML = 'Esperando tu jugada...'
+    razonesEl.innerHTML = ''
+    tutorRetroEl.textContent = ''
+    updateStatus()
+    actualizarTutor()
+    if (game.turn() !== playerColor) setTimeout(botMove, 300)
+}
+
+byID('btnNueva').addEventListener('click', nuevaPartida)
+
 function byID (id) {
     return document.getElementById(id)
 }
 
-// run once everything above is defined
+// se ejecuta una vez que todo lo anterior está definido
 updateStatus()
+actualizarTutor()
+if (game.turn() !== playerColor) setTimeout(botMove, 300) // si el bot juega con blancas, empieza él

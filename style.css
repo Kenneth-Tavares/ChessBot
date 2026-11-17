@@ -52,3 +52,143 @@ body {
 #gameStatus {
   margin: 4px 0 12px;
 }
+/* ---------- paneles de explicación y tutor ---------- */
+/* columna a la derecha del tablero, de la misma altura que el tablero */
+#paneles {
+  width: 340px;
+  height: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.panel {
+  flex: 1 1 0;
+  min-height: 0;          /* permite que el panel se encoja y use scroll */
+  background: #312e2b;
+  border-radius: 6px;
+  padding: 12px 14px;
+  text-align: left;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+  overflow-y: auto;
+}
+
+#panelTutor { flex-grow: 2; }   /* el tutor tiene textos más largos */
+
+.panel h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+
+#jugadaBot, #tutorJugada {
+  font-size: 15px;
+  margin-bottom: 10px;
+  color: #ddd;
+}
+
+#razones, #tutorRazones {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.razon {
+  font-size: 13px;
+  line-height: 1.4;
+  margin-bottom: 8px;
+  padding-left: 8px;
+  border-left: 3px solid #888;
+}
+
+.etiqueta {
+  display: inline-block;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 1px 6px;
+  margin-right: 6px;
+  border-radius: 3px;
+  background: #4a4744;
+  color: #ccc;
+}
+
+/* un color por tipo de concepto */
+.tipo-resultado  { border-color: #e05a47; }
+.tipo-experto    { border-color: #b58cff; }
+.tipo-tactica    { border-color: #f0a030; }
+.tipo-estrategia { border-color: #6fb35a; }
+.tipo-evaluacion { border-color: #4aa3df; }
+.tipo-plan       { border-color: #999;    }
+
+#btnNueva {
+  background: #81b64c;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 18px;
+  font-size: 14px;
+  cursor: pointer;
+  display: block;
+  margin: 0 auto 14px;
+}
+
+#btnNueva:hover { background: #95c95f; }
+
+/* ---------- modo tutor ---------- */
+.tutorEncabezado {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.tutorEncabezado h3 { margin: 0; }
+
+#tutorRetro {
+  font-size: 13px;
+  color: #f0c060;
+  margin-bottom: 6px;
+}
+
+#tutorRetro:empty { display: none; }
+
+/* interruptor on/off */
+.interruptor {
+  position: relative;
+  width: 42px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.interruptor input { opacity: 0; width: 0; height: 0; }
+
+.deslizador {
+  position: absolute;
+  inset: 0;
+  background: #5a5652;
+  border-radius: 22px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.deslizador::before {
+  content: "";
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  left: 3px;
+  top: 3px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+
+.interruptor input:checked + .deslizador { background: #81b64c; }
+.interruptor input:checked + .deslizador::before { transform: translateX(20px); }
+
+/* en pantallas angostas los paneles van debajo del tablero */
+@media (max-width: 860px) {
+  #boardRow { flex-wrap: wrap; }
+  #paneles { width: 100%; max-width: 440px; height: auto; }
+  .panel { flex: none; }
+}
